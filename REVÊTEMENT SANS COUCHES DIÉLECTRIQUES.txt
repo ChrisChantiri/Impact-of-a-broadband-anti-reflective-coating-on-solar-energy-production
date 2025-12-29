@@ -1,0 +1,12 @@
+Code 1:
+% Transmissivité et puissance intégrée
+T =0.798;
+lambda_1 = 400;               % Longueur d’onde minimale (nm)
+lambda_2 = 2200;              % Longueur d’onde maximale (nm)
+step = 1;                     % Pas de calcul (1 nm)
+wav = lambda_1:step:lambda_2; % in nm
+
+I =@(x) 6.16E15 ./ (x.^5 .* (exp(2484./x)-1));    % Définition de l’irradiance spectrale du soleil
+P_lambda = I(wav) * T;
+P = trapz(wav, P_lambda);                         % Intégration numérique de la puissance sur λ = 400 → 2200 nm
+fprintf('Power =%.3f W.\n', P);

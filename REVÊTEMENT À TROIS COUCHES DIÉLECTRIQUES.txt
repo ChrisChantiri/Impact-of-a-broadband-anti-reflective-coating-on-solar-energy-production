@@ -1,0 +1,135 @@
+Code 1:
+% REVÊTEMENT À TROIS COUCHES DIÉLECTRIQUES
+
+% Paramètres physiques
+n0 = 1.33;   % Eau
+n1 = 1.5;    % Couche 1
+n2 = 2.2;    % Couche 2
+n3 = 3.2;    % Couche 3
+n4 = 3.5;    % Cellule PV (substrat)
+
+lc = 650;    % Longueur d’onde centrale (nm)
+
+% Épaisseurs quart-d’onde (dans chaque milieu)
+d1 = lc / (4 * n1);
+d2 = lc / (4 * n2);
+d3 = lc / (4 * n3);
+
+% Gamme spectrale
+lam = 400:1:1400;    % nm
+R = zeros(size(lam));
+
+% Fonctions auxiliaires
+Q = @(nL,nR) (1/(2*nL/(nL+nR))) * [1, (nL-nR)/(nL+nR); (nL-nR)/(nL+nR), 1];
+P = @(n,d,lambda) diag([exp(1j*2*pi*n*d./lambda), exp(-1j*2*pi*n*d./lambda)]);
+
+% Boucle spectrale
+for k = 1:numel(lam)
+    L = lam(k);
+
+    % Interfaces
+    Q01 = Q(n0,n1);
+    Q12 = Q(n1,n2);
+    Q23 = Q(n2,n3);
+    Q34 = Q(n3,n4);
+
+    % Propagations
+    P1 = P(n1,d1,L);
+    P2 = P(n2,d2,L);
+    P3 = P(n3,d3,L);
+
+    % Matrice de transfert totale
+    Tmat = Q01 * P1 * Q12 * P2 * Q23 * P3 * Q34;
+
+    % Coefficient de réflexion global
+    Gamma = Tmat(2,1) / Tmat(1,1);
+    R(k) = abs(Gamma).^2;
+end
+
+% Tracé
+figure;
+plot(lam, R, 'LineWidth', 1.5);
+grid on;
+xlabel('\lambda (nm)');
+ylabel('R(\lambda)');
+title('Réflectivité du revêtement à 3 couches (quart-d’onde)');
+
+
+
+Code 2:
+% Transmissivité et puissance intégrée
+Tspec = 1 - R;                                        % Transmissivité 
+Ilam  = 6.61e15 ./ (lam.^5 .* (exp(2484./lam) - 1));  % Spectre solaire (W/m^2/nm)
+
+Pnum = trapz(lam, Tspec .* Ilam);                     % Intégrale sur le spectre
+fprintf('Puissance transmise = %.1f W/m^2 (400–1400 nm)\n', Pnum);
+
+
+
+Code 3:
+n0 = 1.33;   % Indice de réfraction (eau)
+n1 = 1.5;    % Première couche diélectrique
+n3 = 3.2;    % Troisième couche diélectrique
+n4 = 3.5;    % Substrat (cellule photovoltaïque)
+lc = 650;    % Longueur d’onde centrale (nm)
+
+n2vec = 1.7:0.01:3.0;    % Gamme de valeurs possibles pour n2 
+Pvec = zeros(size(n2vec));
+
+% Définition du spectre solaire (400–1400 nm)
+lam  = 400:1:1400;
+Ilam = 6.61e15 ./ (lam.^5 .* (exp(2484./lam) - 1));
+
+% Matrices d’interface Q et de propagation P
+Q = @(nL,nR) (1/(2*nL/(nL+nR))) * [1, (nL-nR)/(nL+nR); (nL-nR)/(nL+nR), 1];
+P = @(n,d,lambda) diag([exp(1j*2*pi*n*d./lambda), exp(-1j*2*pi*n*d./lambda)]);
+
+% Boucle sur toutes les valeurs de n2 
+for m = 1:numel(n2vec)
+    n2 = n2vec(m);         % Indice n2 testé à cette itération
+     
+    % Épaisseurs quart-d’onde des trois couches
+    d1 = lc / (4 * n1);
+    d2 = lc / (4 * n2);
+    d3 = lc / (4 * n3);
+
+    R = zeros(size(lam));        % Réflectivité spectrale
+    for k = 1:numel(lam)
+        L = lam(k);              % Longueur d’onde actuelle
+        
+	% Matrices d’interface entre chaque milieu
+	Q01 = Q(n0,n1); 
+	Q12 = Q(n1,n2); 
+	Q23 = Q(n2,n3); 
+	Q34 = Q(n3,n4);
+        
+	% Matrices de propagation dans chaque couche
+	P1 = P(n1,d1,L); 
+	P2 = P(n2,d2,L); 
+	P3 = P(n3,d3,L);
+        
+	% Matrice de transfert totale du système 
+	Tmat = Q01 * P1 * Q12 * P2 * Q23 * P3 * Q34;
+        
+	Gamma = Tmat(2,1) / Tmat(1,1);      % Coefficient de réflexion global
+        R(k) = abs(Gamma).^2;               % Réflectivité spectrale
+    end
+
+    % Transmissivité et puissance transmise
+    Tspec = 1 - R;
+    Pvec(m) = trapz(lam, Tspec .* Ilam);
+end
+
+% Trouver la puissance maximale et l’indice n2 qui la donne
+[Pgain, idx] = max(Pvec);
+fprintf('Pmax = %.1f W/m^2 à n2 = %.2f (n1=%.2f)\n', Pgain, n2vec(idx), n1);
+
+figure;
+plot(n2vec, Pvec, 'LineWidth', 1.5);
+grid on;
+xlabel('n_2'); 
+ylabel('Puissance transmise (W/m^2)');
+title('Puissance en fonction de n_2 (revêtement 3 couches)');
+
+
+

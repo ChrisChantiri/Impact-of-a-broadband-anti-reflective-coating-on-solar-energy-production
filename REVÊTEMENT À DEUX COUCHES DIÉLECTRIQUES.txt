@@ -1,0 +1,110 @@
+Code 1: 
+% Constantes et paramètres système
+n0   = 1.33;          % eau
+n3   = 3.50;          % cellule PV (semi-conducteur)
+lc   = 650;           % longueur d’onde centrale (nm) dans L’ESPACE LIBRE
+n1   = 1.5;
+n2   = 2.43;
+
+% Épaisseurs quart-d’onde DANS CHAQUE COUCHE
+d1   = lc/(4*n1);     % nm
+d2   = lc/(4*n2);     % nm
+
+% Gamme spectrale 
+lam  = 400:1:1400;    % nm
+R    = zeros(size(lam));
+
+% Fonctions auxiliaires pour Q et P
+Q = @(nL,nR) (1/(2*nL/(nL+nR))) * [1, (nL-nR)/(nL+nR); (nL-nR)/(nL+nR), 1];     % 1/τ * [1 γ; γ 1]
+P = @(n,d,lambda) diag([exp(1j*2*pi*n*d./lambda), exp(-1j*2*pi*n*d./lambda)]);
+
+% Boucle spectrale
+for k = 1:numel(lam)
+    L = lam(k);
+
+    % Matrices d’interface (dynamiques)
+    Q01 = Q(n0,n1);
+    Q12 = Q(n1,n2);
+    Q23 = Q(n2,n3);
+
+    % Matrices de propagation
+    P1  = P(n1,d1,L);
+    P2  = P(n2,d2,L);
+
+    % Matrice de transfert totale
+    Tmat = Q01 * P1 * Q12 * P2 * Q23;
+
+    % Coefficient de réflexion global
+    Gamma = Tmat(2,1)/Tmat(1,1);
+    R(k)  = abs(Gamma).^2;   % Réflectivité
+end
+
+% Tracé
+figure; 
+plot(lam, R, 'LineWidth', 1.5);
+grid on; xlabel('\lambda (nm)'); 
+ylabel('R(\lambda)');
+title('Réflectivité d’un revêtement 2 couches (quart-d’onde, incidence normale)');
+
+
+
+Code 2:
+% Transmissivité et puissance intégrée
+Tspec = 1 - R;  
+Ilam  = 6.61e15 ./ (lam.^5 .* (exp(2484./lam) - 1));   % W/m^2/nm
+
+Pnum  = trapz(lam, Tspec .* Ilam);      % W/m^2 (sur 400–1400 nm)
+fprintf('Puissance transmise numériquement (400–1400 nm) = %.1f W/m^2\n', Pnum);
+
+
+
+Code 3:
+n1   = 1.50;                    % Indice de réfraction de la première couche                    
+n2vec = 1.0:0.01:3.5;           % Ensemble de valeurs possibles pour n2
+Pvec  = zeros(size(n2vec));     % Pvec(m) sera la puissance obtenue pour n2vec(m)
+
+lam  = 400:1:1400;              % Plage de longueurs d’onde (en nm) pour le calcul spectral
+Ilam = 6.61e15 ./ (lam.^5 .* (exp(2484./lam) - 1));    % Irradiance spectrale du soleil I(λ)
+
+% LOOP EXTERNE : on balaye toutes les valeurs possibles de n2
+for m = 1:numel(n2vec)
+    n2 = n2vec(m);
+    d1 = lc/(4*n1);        %Épaisseurs quart-d’onde pour chaque couche
+    d2 = lc/(4*n2);        % Épaisseurs quart-d’onde pour chaque couche
+
+    R = zeros(size(lam));
+    for k = 1:numel(lam)
+        L   = lam(k);
+        	
+	% Matrices d’interface
+	Q01 = Q(n0,n1);         % Interface eau → couche 1 
+	Q12 = Q(n1,n2);         % Interface couche 1 → couche 2
+	Q23 = Q(n2,n3);         % Interface couche 2 → cellule PV
+        
+	% Matrices de propagation 
+	P1  = P(n1,d1,L);         % Propagation dans la couche 1
+	P2  = P(n2,d2,L);         % Propagation dans la couche 2
+        
+	% Matrice de transfert totale du système 
+	Tmat  = Q01*P1*Q12*P2*Q23;
+        
+	Gamma = Tmat(2,1)/Tmat(1,1);     % Coefficient de réflexion global
+        R(k)  = abs(Gamma).^2;           % Réflectivité
+    end
+    Tspec   = 1 - R;                     % Spectre de transmission T(λ) = 1 - R(λ)
+    Pvec(m) = trapz(lam, Tspec.*Ilam);   % Puissance transmise
+end
+
+% Trouver la puissance maximale et l’indice n2 qui la donne
+[Pgain, idx] = max(Pvec);
+fprintf('Pmax = %.1f W/m^2 à n2 = %.2f (n1=%.2f)\n', Pgain, n2vec(idx), n1);
+
+figure; 
+plot(n2vec, Pvec, 'LineWidth',1.5); 
+grid on;
+xlabel('n_2'); 
+ylabel('P (W/m^2)'); 
+title('Puissance en fonction de n_2 (revêtement 2 couches)');
+
+
+
